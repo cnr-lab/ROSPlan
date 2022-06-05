@@ -19,6 +19,7 @@
   <arg name="use_problem_topic" default="true" />
 
   <!-- command to run the planner -->
+  <!-- <arg name="planner_command" default="timeout 10 $(find rosplan_planning_system)/common/bin/optic-cplex DOMAIN PROBLEM" /> -->
   <arg name="planner_command" default="timeout 10 $(find rosplan_planning_system)/common/bin/popf DOMAIN PROBLEM" />
 
   <!-- interface to the planning system -->

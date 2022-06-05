@@ -219,6 +219,44 @@ namespace KCL_rosplan {
 
 			if(updatePredSrv.request.knowledge.size()>0 && !update_knowledge_client.call(updatePredSrv))
 				ROS_INFO("KCL: (%s) failed to update PDDL model in knowledge base", params.name.c_str());
+
+			ROS_INFO("########################################################");
+			ROS_INFO("           update Funtion from at start");
+			ROS_INFO("########################################################");
+			// update knowledge base from Function
+			rosplan_knowledge_msgs::KnowledgeUpdateServiceArray updateFuncSrv;
+
+			// simple START assign effects
+			for(int i=0; i<op.at_start_assign_effects.size(); i++) {
+
+				rosplan_knowledge_msgs::KnowledgeItem item;
+				item.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::FUNCTION;
+				item.attribute_name = op.at_start_assign_effects[i].LHS.name;
+				
+				item.values.clear();
+				diagnostic_msgs::KeyValue pair;
+				for(size_t k=0; k<op.at_start_assign_effects[i].LHS.typed_parameters.size(); k++)
+				{
+					for (int j = 0; j < msg->parameters.size() && j < op.formula.typed_parameters.size(); j++)
+                    {
+                        if(op.formula.typed_parameters[j].key == op.at_start_assign_effects[i].LHS.typed_parameters[k].key) 
+						{
+                            pair.value = msg->parameters[j].value;
+							item.values.push_back(pair);
+						}
+                    }
+				}
+
+				item.assign_op = op.at_start_assign_effects[i].assign_type;
+				item.function_value = op.at_start_assign_effects[i].RHS.tokens[0].constant; // need to calculate RHS side
+
+				updateFuncSrv.request.knowledge.push_back(item);
+				updateFuncSrv.request.update_type.push_back(rosplan_knowledge_msgs::KnowledgeUpdateService::Request::ADD_KNOWLEDGE);
+			}
+
+			if(updateFuncSrv.request.knowledge.size()>0 && !update_knowledge_client.call(updateFuncSrv))
+				ROS_INFO("KCL: (%s) failed to update PDDL FUNCTION model in knowledge base", params.name.c_str());
+
 		}
 
 		// call concrete implementation
@@ -279,6 +317,46 @@ namespace KCL_rosplan {
 
 			if(updatePredSrv.request.knowledge.size()>0 && !update_knowledge_client.call(updatePredSrv))
 				ROS_INFO("KCL: (%s) failed to update PDDL model in knowledge base", params.name.c_str());
+
+			ROS_INFO("########################################################");
+			ROS_INFO("           update Funtion from at end");
+			ROS_INFO("########################################################");
+
+			// update knowledge base from Function
+			rosplan_knowledge_msgs::KnowledgeUpdateServiceArray updateFuncSrv;
+
+			// simple START assign effects
+			for(int i=0; i<op.at_end_assign_effects.size(); i++) {
+
+				rosplan_knowledge_msgs::KnowledgeItem item;
+				item.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::FUNCTION;
+				item.attribute_name = op.at_end_assign_effects[i].LHS.name;
+				
+				item.values.clear();
+				diagnostic_msgs::KeyValue pair;
+				for(size_t k=0; k<op.at_end_assign_effects[i].LHS.typed_parameters.size(); k++)
+				{
+					for (int j = 0; j < msg->parameters.size() && j < op.formula.typed_parameters.size(); j++)
+                    {
+                        if(op.formula.typed_parameters[j].key == op.at_end_assign_effects[i].LHS.typed_parameters[k].key) 
+						{
+                            pair.value = msg->parameters[j].value;
+                            // tmp_token.function.typed_parameters.push_back(pair);
+							item.values.push_back(pair);
+                        }
+                    }
+				}
+
+				item.assign_op = op.at_end_assign_effects[i].assign_type;
+				item.function_value = op.at_end_assign_effects[i].RHS.tokens[0].constant; // need to calculate RHS side
+
+				updateFuncSrv.request.knowledge.push_back(item);
+				updateFuncSrv.request.update_type.push_back(rosplan_knowledge_msgs::KnowledgeUpdateService::Request::ADD_KNOWLEDGE);
+			}
+
+			if(updateFuncSrv.request.knowledge.size()>0 && !update_knowledge_client.call(updateFuncSrv))
+				ROS_INFO("KCL: (%s) failed to update PDDL FUNCTION model in knowledge base", params.name.c_str());
+
 
 			// publish feedback (achieved)
 			fb.status = rosplan_dispatch_msgs::ActionFeedback::ACTION_SUCCEEDED_TO_GOAL_STATE;

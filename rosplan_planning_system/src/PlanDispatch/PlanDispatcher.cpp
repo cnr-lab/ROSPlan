@@ -166,6 +166,86 @@ namespace KCL_rosplan {
             positiveQuerySrv.request.knowledge.push_back(condition);
         }
 
+        // iterate through comparison
+        std::vector<rosplan_knowledge_msgs::DomainInequality>::iterator comp_iter = op.at_start_comparison.begin();
+        rosplan_knowledge_msgs::KnowledgeQueryService compQuerySrv;
+        for(; comp_iter!=op.at_start_comparison.end(); comp_iter++) {
+
+            // create condition
+            rosplan_knowledge_msgs::KnowledgeItem condition;
+            condition.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::INEQUALITY;
+            condition.ineq.comparison_type = comp_iter->comparison_type;
+            condition.ineq.grounded = comp_iter->grounded;
+
+            // LHS parameters
+            for(int i=0; i < comp_iter->LHS.tokens.size(); i++) {
+                rosplan_knowledge_msgs::ExprBase tmp_token;
+                tmp_token.expr_type = comp_iter->LHS.tokens[i].expr_type;
+                tmp_token.constant = comp_iter->LHS.tokens[i].constant;
+                tmp_token.function.name = comp_iter->LHS.tokens[i].function.name;
+
+                tmp_token.op = comp_iter->LHS.tokens[i].op;
+                tmp_token.special_type = comp_iter->LHS.tokens[i].special_type;
+                
+                for(int k = 0; k < comp_iter->LHS.tokens[i].function.typed_parameters.size(); k++) {
+                    for (int j = 0; j < msg.parameters.size() && j < op.formula.typed_parameters.size(); j++)
+                    {
+                        diagnostic_msgs::KeyValue param;
+                        if(op.formula.typed_parameters[j].key == comp_iter->LHS.tokens[i].function.typed_parameters[k].key) {
+                            param.value = msg.parameters[j].value;
+                            tmp_token.function.typed_parameters.push_back(param);
+                        }
+                    }
+                }
+                condition.ineq.LHS.tokens.push_back(tmp_token);
+            }
+
+            // RHS parameters
+            for(int i=0; i < comp_iter->RHS.tokens.size(); i++) {
+                rosplan_knowledge_msgs::ExprBase tmp_token;
+                tmp_token.expr_type = comp_iter->RHS.tokens[i].expr_type;
+                tmp_token.constant = comp_iter->RHS.tokens[i].constant;
+                tmp_token.function.name = comp_iter->RHS.tokens[i].function.name;
+
+                tmp_token.op = comp_iter->RHS.tokens[i].op;
+                tmp_token.special_type = comp_iter->RHS.tokens[i].special_type;
+                
+                for(int k = 0; k < comp_iter->RHS.tokens[i].function.typed_parameters.size(); k++) 
+                {
+                    for (int j = 0; j < msg.parameters.size() && j < op.formula.typed_parameters.size(); j++)
+                    {
+                        diagnostic_msgs::KeyValue param;
+                        if(op.formula.typed_parameters[j].key == comp_iter->RHS.tokens[i].function.typed_parameters[k].key) 
+                        {
+                            param.value = msg.parameters[j].value;
+                            tmp_token.function.typed_parameters.push_back(param);
+                        }
+                    }
+                }
+
+                condition.ineq.RHS.tokens.push_back(tmp_token);
+            }
+
+            compQuerySrv.request.knowledge.push_back(condition);
+        }
+        ROS_INFO("write comparison query");
+
+        // check positive comparison in knowledge base
+        if (queryKnowledgeClient.call(compQuerySrv)) {
+
+            if(!compQuerySrv.response.all_true) {
+                std::vector<rosplan_knowledge_msgs::KnowledgeItem>::iterator kit;
+                for(kit=compQuerySrv.response.false_knowledge.begin(); kit != compQuerySrv.response.false_knowledge.end(); kit++)
+                    ROS_INFO_STREAM("KCL: (" << ros::this_node::getName().c_str() << ") Precomparsion not achieved");
+            }
+            else{
+                ROS_INFO("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+                ROS_INFO("KCL: (%s) Compare all true!", ros::this_node::getName().c_str());
+            }
+        } else {
+            ROS_ERROR("KCL: (%s) Failed to call service query_state", ros::this_node::getName().c_str());
+        }
+
         // checking negative preconditions
         cit = op.at_start_neg_condition.begin();
         // flag to indicate that at least one of the negative conditions was found in KB
@@ -228,7 +308,7 @@ namespace KCL_rosplan {
                 for(kit=positiveQuerySrv.response.false_knowledge.begin(); kit != positiveQuerySrv.response.false_knowledge.end(); kit++)
                     ROS_INFO("KCL: (%s) Precondition not achieved: %s", ros::this_node::getName().c_str(), kit->attribute_name.c_str());
             }
-            return positiveQuerySrv.response.all_true && !neg_preconditions;
+            return positiveQuerySrv.response.all_true && compQuerySrv.response.all_true && !neg_preconditions;
 
         } else {
             ROS_ERROR("KCL: (%s) Failed to call service query_state", ros::this_node::getName().c_str());
